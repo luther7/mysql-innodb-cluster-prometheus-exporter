@@ -31,7 +31,8 @@ const (
 )
 
 var (
-	allMetrics = map[string]string{
+	defaultConnectionString = "root:mysql@localhost:3306"
+	allMetrics              = map[string]string{
 		"server_up": "Current health of the server (1 = UP, 0 = DOWN).",
 	}
 )
@@ -70,7 +71,7 @@ func (exporter *Exporter) Describe(channel chan<- *prometheus.Desc) {
 }
 
 func (exporter *Exporter) Collect(channel chan<- prometheus.Metric) {
-	exporter.mutex.Lock() // To protect metrics from concurrent collects.
+	exporter.mutex.Lock()
 	defer exporter.mutex.Unlock()
 
 	exporter.scrape()
@@ -86,8 +87,7 @@ func (exporter *Exporter) scrape() {
 
 	body, err := exec.Command(
 		"mysqlsh",
-		"--user=root",
-		"--password=mysql",
+		exporter.connectionString,
 		"--interactive",
 		"--js",
 		"--json=raw",
@@ -140,7 +140,9 @@ func main() {
 	connectionString = os.Getenv("MYSQL_CONNECTION_STRING")
 	if len(connectionString) == 0 {
 		// TODO also allow reading the data source from a file
-		log.Fatal("MYSQL_CONNECTION_STRING not set")
+		log.Infoln("MYSQL_CONNECTION_STRING not set, using default", defaultConnectionString)
+	} else {
+		connectionString = defaultConnectionString
 	}
 
 	exporter, err := NewExporter(connectionString, metrics)
