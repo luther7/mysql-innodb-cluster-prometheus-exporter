@@ -14,11 +14,10 @@
 package main
 
 import (
-	"io"
 	"net/http"
 	"os"
+	"os/exec"
 	"sync"
-	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -40,7 +39,6 @@ var (
 type Exporter struct {
 	connectionString string
 	mutex            sync.RWMutex
-	fetch            func() (io.ReadCloser, error)
 	up               prometheus.Gauge
 	totalScrapes     prometheus.Counter
 	metrics          []prometheus.Gauge
@@ -49,7 +47,6 @@ type Exporter struct {
 func NewExporter(connectionString string, metrics []prometheus.Gauge) (*Exporter, error) {
 	return &Exporter{
 		connectionString: connectionString,
-		fetch:            fetcher,
 		up: prometheus.NewGauge(prometheus.GaugeOpts{
 			Namespace: namespace,
 			Name:      "up",
@@ -84,22 +81,23 @@ func (exporter *Exporter) Collect(channel chan<- prometheus.Metric) {
 	}
 }
 
-func fetcher(connectionString string, timeout time.Duration) func() (io.ReadCloser, error) {
-	return func() (io.ReadCloser, error) {
-		//TODO
-	}
-}
-
 func (exporter *Exporter) scrape() {
 	exporter.totalScrapes.Inc()
 
-	body, err := exporter.fetch()
+	body, err := exec.Command(
+		"mysqlsh",
+		"--user=root",
+		"--password=mysql",
+		"--interactive",
+		"--js",
+		"--json=raw",
+		"--execute='dba.getCluster().status()'",
+	).Output()
 	if err != nil {
 		exporter.up.Set(0)
 		log.Errorf("Can't scrape MySQL: %v", err)
 		return
 	}
-	defer body.Close()
 	exporter.up.Set(1)
 
 	// TODO
@@ -145,7 +143,7 @@ func main() {
 		log.Fatal("MYSQL_CONNECTION_STRING not set")
 	}
 
-	exporter, err := NewExporter(connectionString, selectedMetrics)
+	exporter, err := NewExporter(connectionString, metrics)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -159,7 +157,7 @@ func main() {
              <head><title>MySQL InnoDB Cluster Exporter</title></head>
              <body>
              <h1>MySQL InnoDB Cluster Exporter</h1>
-             <p><a href='` + *metricsPath + `'>Metrics</a></p>
+             <p><a href='` + *metricPath + `'>Metrics</a></p>
              </body>
              </html>`))
 	})
