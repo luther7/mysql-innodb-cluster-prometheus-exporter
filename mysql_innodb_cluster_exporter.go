@@ -23,6 +23,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/prometheus/common/log"
 	"github.com/prometheus/common/version"
+	"github.com/tidwall/gjson"
 	"gopkg.in/alecthomas/kingpin.v2"
 )
 
@@ -33,7 +34,7 @@ const (
 var (
 	defaultConnectionString = "root:mysql@localhost:3306"
 	allMetrics              = map[string]string{
-		"server_up": "Current health of the server (1 = UP, 0 = DOWN).",
+		"default_replica_set_status": "Current health of the default replica set (1 = UP, 0 = DOWN).",
 	}
 )
 
@@ -42,10 +43,10 @@ type Exporter struct {
 	mutex            sync.RWMutex
 	up               prometheus.Gauge
 	totalScrapes     prometheus.Counter
-	metrics          []prometheus.Gauge
+	metrics          map[string]prometheus.Gauge
 }
 
-func NewExporter(connectionString string, metrics []prometheus.Gauge) (*Exporter, error) {
+func NewExporter(connectionString string, metrics map[string]prometheus.Gauge) (*Exporter, error) {
 	return &Exporter{
 		connectionString: connectionString,
 		up: prometheus.NewGauge(prometheus.GaugeOpts{
@@ -100,7 +101,14 @@ func (exporter *Exporter) scrape() {
 	}
 	exporter.up.Set(1)
 
-	// TODO
+	if _, ok := exporter.metrics["default_replica_set_status"]; ok {
+		upText := gjson.GetBytes(body, "..4.defaultReplicaSet.status").String()
+		var up float64 = 0
+		if upText == "OK" {
+			up = 1
+		}
+		exporter.metrics["default_replica_set_status"].Set(up)
+	}
 }
 
 func main() {
@@ -114,7 +122,7 @@ func main() {
 			"Path under which to expose metrics.",
 		).Default("/metrics").String()
 		connectionString string
-		metrics          = []prometheus.Gauge{}
+		metrics          = map[string]prometheus.Gauge{}
 	)
 
 	for name, help := range allMetrics {
@@ -125,7 +133,7 @@ func main() {
 				Name:      name,
 				Help:      help,
 			})
-			metrics = append(metrics, metric)
+			metrics[name] = metric
 		}
 	}
 
