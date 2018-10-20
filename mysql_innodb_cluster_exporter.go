@@ -86,23 +86,25 @@ func (exporter *Exporter) Collect(channel chan<- prometheus.Metric) {
 func (exporter *Exporter) scrape() {
 	exporter.totalScrapes.Inc()
 
-	body, err := exec.Command(
+	command := exec.Command(
 		"mysqlsh",
 		exporter.connectionString,
 		"--interactive",
 		"--js",
 		"--json=raw",
-		"--execute='dba.getCluster().status()'",
-	).Output()
+		"--execute=dba.getCluster().status()",
+	)
+	body, err := command.Output()
 	if err != nil {
 		exporter.up.Set(0)
 		log.Errorf("Can't scrape MySQL: %v", err)
+
 		return
 	}
 	exporter.up.Set(1)
 
 	if _, ok := exporter.metrics["default_replica_set_status"]; ok {
-		upText := gjson.GetBytes(body, "..4.defaultReplicaSet.status").String()
+		upText := gjson.GetBytes(body, "..2.defaultReplicaSet.status").String()
 		var up float64 = 0
 		if upText == "OK" {
 			up = 1
@@ -116,25 +118,18 @@ func main() {
 		listenAddress = kingpin.Flag(
 			"web.listen-address",
 			"Address to listen on for web interface and telemetry.",
-		).Default(":9104").String()
+		).Default(":9105").String()
 		metricPath = kingpin.Flag(
 			"web.telemetry-path",
 			"Path under which to expose metrics.",
 		).Default("/metrics").String()
 		connectionString string
 		metrics          = map[string]prometheus.Gauge{}
+		selectedMetrics  = map[string]*bool{}
 	)
 
 	for name, help := range allMetrics {
-		enabled := kingpin.Flag("collect."+name, help).Default("true").Bool()
-		if *enabled {
-			metric := prometheus.NewGauge(prometheus.GaugeOpts{
-				Namespace: namespace,
-				Name:      name,
-				Help:      help,
-			})
-			metrics[name] = metric
-		}
+		selectedMetrics[name] = kingpin.Flag("collect."+name, help).Default("true").Bool()
 	}
 
 	log.AddFlags(kingpin.CommandLine)
@@ -149,8 +144,17 @@ func main() {
 	if len(connectionString) == 0 {
 		// TODO also allow reading the data source from a file
 		log.Infoln("MYSQL_CONNECTION_STRING not set, using default", defaultConnectionString)
-	} else {
 		connectionString = defaultConnectionString
+	}
+
+	for name, enabled := range selectedMetrics {
+		if *enabled {
+			metrics[name] = prometheus.NewGauge(prometheus.GaugeOpts{
+				Namespace: namespace,
+				Name:      name,
+				Help:      allMetrics[name],
+			})
+		}
 	}
 
 	exporter, err := NewExporter(connectionString, metrics)
@@ -164,12 +168,12 @@ func main() {
 	http.Handle(*metricPath, promhttp.Handler())
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(`<html>
-             <head><title>MySQL InnoDB Cluster Exporter</title></head>
-             <body>
-             <h1>MySQL InnoDB Cluster Exporter</h1>
-             <p><a href='` + *metricPath + `'>Metrics</a></p>
-             </body>
-             </html>`))
+<head><title>MySQL InnoDB Cluster Exporter</title></head>
+<body>
+<h1>MySQL InnoDB Cluster Exporter</h1>
+<p><a href='` + *metricPath + `'>Metrics</a></p>
+</body>
+</html>`))
 	})
 	log.Fatal(http.ListenAndServe(*listenAddress, nil))
 }
