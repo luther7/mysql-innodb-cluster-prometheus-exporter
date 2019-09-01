@@ -79,6 +79,7 @@ func (exporter *Exporter) scrape() {
 		"--interactive",
 		"--js",
 		"--json=raw",
+		"--quiet-start=2",
 		"--execute=dba.getCluster().status()",
 	)
 	body, err := command.Output()
@@ -91,7 +92,7 @@ func (exporter *Exporter) scrape() {
 	exporter.up.Set(1)
 
 	if _, ok := exporter.metrics["default_replica_set_status"]; ok {
-		upText := gjson.GetBytes(body, "..2.defaultReplicaSet.status").String()
+		upText := gjson.GetBytes(body, "defaultReplicaSet.status").String()
 		var up float64 = 0
 		if upText == "OK" {
 			up = 1
