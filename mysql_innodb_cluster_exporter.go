@@ -70,9 +70,7 @@ func (exporter *Exporter) Collect(channel chan<- prometheus.Metric) {
 	}
 }
 
-func (exporter *Exporter) scrape() {
-	exporter.totalScrapes.Inc()
-
+func runCommand(exporter *Exporter) ([]byte, error) {
 	command := exec.Command(
 		"mysqlsh",
 		exporter.connectionString,
@@ -82,15 +80,10 @@ func (exporter *Exporter) scrape() {
 		"--quiet-start=2",
 		"--execute=dba.getCluster().status()",
 	)
-	body, err := command.Output()
-	if err != nil {
-		exporter.up.Set(0)
-		log.Errorf("Can't scrape MySQL: %v", err)
+	return command.Output()
+}
 
-		return
-	}
-	exporter.up.Set(1)
-
+func parseCommand(exporter *Exporter, body []byte) (error) {
 	if _, ok := exporter.metrics["default_replica_set_status"]; ok {
 		upText := gjson.GetBytes(body, "defaultReplicaSet.status").String()
 		var up float64 = 0
@@ -99,6 +92,20 @@ func (exporter *Exporter) scrape() {
 		}
 		exporter.metrics["default_replica_set_status"].Set(up)
 	}
+	return nil
+}
+
+func (exporter *Exporter) scrape() {
+	exporter.totalScrapes.Inc()
+	body, err := runCommand(exporter)
+	if err != nil {
+		exporter.up.Set(0)
+		log.Errorf("Can't scrape MySQL: %v", err)
+
+		return
+	}
+	exporter.up.Set(1)
+	parseCommand(exporter, body)
 }
 
 func main() {
