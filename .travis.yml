@@ -3,5 +3,7 @@ go:
 - 1.12.x
 
 script:
- - make test
+ - go mod download
+ - go mod vendor
+ - go test
  - git diff --exit-code
