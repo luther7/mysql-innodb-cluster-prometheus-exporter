@@ -16,6 +16,26 @@ import (
 	"syscall"
 	"testing"
 	"time"
+	"path"
+
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/testutil"
+)
+
+const (
+	testConnectionString = "root:mysql@localhost:3306"
+)
+
+var (
+	serverMetrics = map[string]prometheus.Gauge{
+		"default_replica_set_status": prometheus.NewGauge(
+			prometheus.GaugeOpts{
+				Namespace: namespace,
+				Name:      "default_replica_set_status",
+				Help:      allMetrics["default_replica_set_status"],
+			},
+		),
+	}
 )
 
 // bin stores information about path of executable and attached port
@@ -161,3 +181,31 @@ func getBody(urlToGet string) ([]byte, error) {
 	return body, nil
 }
 
+func expectMetrics(t *testing.T, c prometheus.Collector, fixture string) {
+	exp, err := os.Open(path.Join("test", fixture))
+	if err != nil {
+		t.Fatalf("Error opening fixture file %q: %v", fixture, err)
+	}
+	if err := testutil.CollectAndCompare(c, exp); err != nil {
+		t.Fatal("Unexpected metrics returned:", err)
+	}
+}
+
+func testCommand(t *testing.T, bodyString string, fixture string) {
+	body := []byte(bodyString)
+	e, _ := NewExporter(testConnectionString, serverMetrics)
+	parseCommand(e, body)
+	expectMetrics(t, e, fixture)
+}
+
+func TestBadCommand(t *testing.T) {
+	badString := "FOOBAR"
+	testCommand(t, badString, "bad_command.metrics")
+}
+
+func TestGoodCommand(t *testing.T) {
+	goodString := `
+{"clusterName":"test","defaultReplicaSet":{"name":"default","primary":"server-1:3306","ssl":"REQUIRED","status":"OK","statusText":"Cluster is ONLINE and can tolerate up to ONE failure.","topology":{"server-1:3306":{"address":"server-1:3306","mode":"R/W","readReplicas":{},"role":"HA","status":"ONLINE","version":"8.0.12"},"server-2:3306":{"address":"server-2:3306","mode":"R/O","readReplicas":{},"role":"HA","status":"ONLINE","version":"8.0.12"},"server-3:3306":{"address":"server-3:3306","mode":"R/O","readReplicas":{},"role":"HA","status":"ONLINE","version":"8.0.12"}},"topologyMode":"Single-Primary"},"groupInformationSourceMember":"7d998e64a098:3306"}
+`
+	testCommand(t, goodString, "good_command.metrics")
+}

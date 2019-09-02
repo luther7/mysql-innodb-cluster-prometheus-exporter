@@ -1,0 +1,9 @@
+# HELP mysql_innodb_cluster_exporter_default_replica_set_status Current health of the default replica set (1 = UP, 0 = DOWN).
+# TYPE mysql_innodb_cluster_exporter_default_replica_set_status gauge
+mysql_innodb_cluster_exporter_default_replica_set_status 1
+# HELP mysql_innodb_cluster_exporter_exporter_total_scrapes Current total MySQL scrapes.
+# TYPE mysql_innodb_cluster_exporter_exporter_total_scrapes counter
+mysql_innodb_cluster_exporter_exporter_total_scrapes 1
+# HELP mysql_innodb_cluster_exporter_up Was the last scrape of MySQL successful.
+# TYPE mysql_innodb_cluster_exporter_up gauge
+mysql_innodb_cluster_exporter_up 1

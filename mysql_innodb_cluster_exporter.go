@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"sync"
+	"fmt"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -83,16 +84,16 @@ func runCommand(exporter *Exporter) ([]byte, error) {
 	return command.Output()
 }
 
-func parseCommand(exporter *Exporter, body []byte) (error) {
+func parseCommand(exporter *Exporter, body []byte) {
+	var up float64 = 0
 	if _, ok := exporter.metrics["default_replica_set_status"]; ok {
 		upText := gjson.GetBytes(body, "defaultReplicaSet.status").String()
-		var up float64 = 0
 		if upText == "OK" {
 			up = 1
 		}
-		exporter.metrics["default_replica_set_status"].Set(up)
+
 	}
-	return nil
+	exporter.metrics["default_replica_set_status"].Set(up)
 }
 
 func (exporter *Exporter) scrape() {
