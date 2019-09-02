@@ -10,8 +10,8 @@ This is a simple server that scrapes MySQL InnoDB Cluster status and exports the
 
 ## To do
 
-[ ] Testing a bad command is failing.
-[ ] Add replica set size metric.
+- [ ] Testing a bad command is failing.
+- [ ] Add replica set size metric.
 
 ## Getting Started
 
