@@ -1,4 +1,4 @@
-module github.com/prometheus/haproxy_exporter
+module github.com/prometheus/mysql_innodb_cluster_exporter
 
 require (
 	github.com/prometheus/client_golang v1.0.0

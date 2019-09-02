@@ -160,3 +160,4 @@ func getBody(urlToGet string) ([]byte, error) {
 
 	return body, nil
 }
+
