@@ -1,6 +1,6 @@
 # MySQL InnoDB Cluster Prometheus Exporter
 
-[travisci]: https://travis-ci.org/rubberydub/mysql-innodb-cluster-prometheus-exporter
+[![Build Status](https://travis-ci.org/rubberydub/mysql-innodb-cluster-prometheus-exporter.svg?branch=master)](https://travis-ci.org/rubberydub/mysql-innodb-cluster-prometheus-exporter)
 
 A Prometheus exporter for MySQL InnoDB Cluster status
 
